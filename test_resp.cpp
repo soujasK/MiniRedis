@@ -53,3 +53,34 @@ TEST(RESPTest, Array) {
     auto r = RESP::array({"a", "b"});
     EXPECT_EQ(r, "*2\r\n$1\r\na\r\n$1\r\nb\r\n");
 }
+
+TEST(RESPTest, RejectMalformedNumericLengthsWithoutThrowing) {
+    const std::vector<std::string> malformed = {
+        "*-1\r\n",
+        "*oops\r\n",
+        "*184467440737095516161\r\n",
+        "*1\r\n$-1\r\n",
+        "*1\r\n$x\r\n",
+        "*1\r\n$184467440737095516161\r\n",
+    };
+    for (const auto& input : malformed) {
+        size_t consumed = 123;
+        EXPECT_FALSE(RESP::parse(input, consumed).has_value());
+        EXPECT_EQ(consumed, 123u);
+    }
+}
+
+TEST(RESPTest, RejectIncorrectBulkStringTerminator) {
+    size_t consumed = 0;
+    EXPECT_FALSE(RESP::parse("*1\r\n$3\r\nfooXX", consumed).has_value());
+    EXPECT_FALSE(RESP::parse("*1\r\n$3\r\nfoo\r", consumed).has_value());
+}
+
+TEST(RESPTest, AllowCRLFWithinBulkPayload) {
+    size_t consumed = 0;
+    const auto parsed = RESP::parse("*1\r\n$4\r\na\r\nb\r\n", consumed);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_EQ(parsed->size(), 1u);
+    EXPECT_EQ((*parsed)[0], "a\r\nb");
+    EXPECT_EQ(consumed, 14u);
+}

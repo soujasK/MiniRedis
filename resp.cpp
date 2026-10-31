@@ -1,6 +1,7 @@
 #include "resp.h"
 #include <sstream>
-#include <stdexcept>
+#include <charconv>
+#include <string_view>
 
 std::optional<std::pair<std::string, size_t>>
 RESP::parse_line(const std::string& data, size_t pos) {
@@ -27,25 +28,35 @@ RESP::parse(const std::string& data, size_t& consumed) {
         return parts;
     }
 
-    // RESP Array: *<count>\r\n
+    // Reject malformed or negative RESP lengths without throwing exceptions.
+    auto parse_length = [](std::string_view value) -> std::optional<size_t> {
+        if (value.empty()) return std::nullopt;
+        size_t parsed = 0;
+        const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), parsed);
+        if (error != std::errc{} || end != value.data() + value.size()) return std::nullopt;
+        return parsed;
+    };
+
     auto line = parse_line(data, pos + 1);
     if (!line) return std::nullopt;
-    int count = std::stoi(line->first);
+    const auto count = parse_length(line->first);
+    if (!count) return std::nullopt;
     pos = line->second;
 
     std::vector<std::string> args;
-    for (int i = 0; i < count; ++i) {
-        if (pos >= data.size()) return std::nullopt;
-        if (data[pos] != '$') return std::nullopt;
+    for (size_t i = 0; i < *count; ++i) {
+        if (pos >= data.size() || data[pos] != '$') return std::nullopt;
 
         auto len_line = parse_line(data, pos + 1);
         if (!len_line) return std::nullopt;
-        int len = std::stoi(len_line->first);
+        const auto len = parse_length(len_line->first);
+        if (!len) return std::nullopt;
         pos = len_line->second;
 
-        if (pos + len + 2 > data.size()) return std::nullopt;
-        args.push_back(data.substr(pos, len));
-        pos += len + 2; // skip \r\n
+        if (*len > data.size() - pos || data.size() - pos - *len < 2) return std::nullopt;
+        if (data[pos + *len] != '\r' || data[pos + *len + 1] != '\n') return std::nullopt;
+        args.push_back(data.substr(pos, *len));
+        pos += *len + 2;
     }
 
     consumed = pos;
