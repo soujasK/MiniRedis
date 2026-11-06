@@ -57,11 +57,11 @@ std::string CommandHandler::cmd_set(const std::vector<std::string>& args) {
     for (size_t i = 3; i < args.size(); ++i) {
         std::string opt = args[i];
         std::transform(opt.begin(), opt.end(), opt.begin(), ::toupper);
-        if (opt == "EX" && i + 1 < args.size()) {
-            auto seconds = parse_integer<int>(args[++i]);
-            if (!seconds || *seconds <= 0) return RESP::error("invalid expire time in SET");
-            ttl = *seconds;
-        }
+        if (opt != "EX" || i + 1 >= args.size() || ttl)
+            return RESP::error("invalid SET option");
+        auto seconds = parse_integer<int>(args[++i]);
+        if (!seconds || *seconds <= 0) return RESP::error("invalid expire time in SET");
+        ttl = *seconds;
     }
     store_.set(args[1], args[2], ttl);
     return RESP::simple_string("OK");
