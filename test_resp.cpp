@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "resp.h"
+#include "command_handler.h"
 
 TEST(RESPTest, ParseInlineCommand) {
     std::string data = "PING\r\n";
@@ -83,4 +84,27 @@ TEST(RESPTest, AllowCRLFWithinBulkPayload) {
     ASSERT_EQ(parsed->size(), 1u);
     EXPECT_EQ((*parsed)[0], "a\r\nb");
     EXPECT_EQ(consumed, 14u);
+}
+
+TEST(CommandHandlerTest, RejectMalformedNumericArgumentsWithoutThrowing) {
+    Store store;
+    CommandHandler handler(store);
+    store.set("counter", "3");
+    const std::vector<std::vector<std::string>> invalid = {
+        {"INCRBY", "counter", "1junk"},
+        {"INCRBY", "counter", "999999999999999999999"},
+        {"EXPIRE", "counter", "oops"},
+        {"LRANGE", "list", "invalid", "1"},
+        {"SET", "key", "value", "EX", "nope"},
+        {"SET", "key", "value", "EX", "0"},
+        {"SET", "key", "value", "UNKNOWN", "1"},
+        {"SET", "key", "value", "EX", "10", "EX", "20"}
+    };
+    for (const auto& command : invalid) {
+        std::string response;
+        EXPECT_NO_THROW(response = handler.handle(command));
+        EXPECT_EQ(response.rfind("-ERR ", 0), 0u);
+    }
+    EXPECT_EQ(store.get("counter"), "3");
+    EXPECT_FALSE(store.get("key").has_value());
 }
