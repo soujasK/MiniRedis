@@ -75,7 +75,14 @@ bool Store::del(const std::string& key) {
     std::unique_lock lock(mutex_);
     bool s = string_store_.erase(key) > 0;
     bool l = list_store_.erase(key) > 0;
-    if (s || l) { lru_map_.erase(key); return true; }
+    if (s || l) {
+        auto pos = lru_map_.find(key);
+        if (pos != lru_map_.end()) {
+            lru_order_.erase(pos->second);
+            lru_map_.erase(pos);
+        }
+        return true;
+    }
     return false;
 }
 
