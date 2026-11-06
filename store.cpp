@@ -36,7 +36,11 @@ void Store::evict_expired() {
     std::unique_lock lock(mutex_);
     for (auto it = string_store_.begin(); it != string_store_.end();) {
         if (is_expired(it->second)) {
-            lru_map_.erase(it->first);
+            auto pos = lru_map_.find(it->first);
+            if (pos != lru_map_.end()) {
+                lru_order_.erase(pos->second);
+                lru_map_.erase(pos);
+            }
             it = string_store_.erase(it);
         } else {
             ++it;
