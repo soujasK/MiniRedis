@@ -194,7 +194,12 @@ bool Store::pattern_match(const std::string& pattern, const std::string& key) co
     for (char c : pattern) {
         if (c == '*') regex_str += ".*";
         else if (c == '?') regex_str += ".";
-        else regex_str += std::string(1, c);
+        else {
+            // Glob metacharacters are handled above; regex syntax in keys is literal.
+            if (std::string(R"(.^$|()[]{}+\)").find(c) != std::string::npos)
+                regex_str += '\\';
+            regex_str += c;
+        }
     }
     return std::regex_match(key, std::regex(regex_str));
 }
