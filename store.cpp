@@ -247,5 +247,9 @@ void Store::flushall() {
 
 size_t Store::dbsize() {
     std::shared_lock lock(mutex_);
-    return string_store_.size() + list_store_.size();
+    size_t live_strings = 0;
+    for (const auto& [key, entry] : string_store_) {
+        if (!is_expired(entry)) ++live_strings;
+    }
+    return live_strings + list_store_.size();
 }
