@@ -1,6 +1,18 @@
 #include "command_handler.h"
 #include <algorithm>
 #include <cctype>
+#include <charconv>
+#include <limits>
+
+namespace {
+template <typename T>
+std::optional<T> parse_integer(const std::string& input) {
+    T value{};
+    auto [end, error] = std::from_chars(input.data(), input.data() + input.size(), value);
+    if (error != std::errc{} || end != input.data() + input.size()) return std::nullopt;
+    return value;
+}
+}
 
 CommandHandler::CommandHandler(Store& store) : store_(store) {}
 
@@ -46,7 +58,9 @@ std::string CommandHandler::cmd_set(const std::vector<std::string>& args) {
         std::string opt = args[i];
         std::transform(opt.begin(), opt.end(), opt.begin(), ::toupper);
         if (opt == "EX" && i + 1 < args.size()) {
-            ttl = std::stoi(args[++i]);
+            auto seconds = parse_integer<int>(args[++i]);
+            if (!seconds || *seconds <= 0) return RESP::error("invalid expire time in SET");
+            ttl = *seconds;
         }
     }
     store_.set(args[1], args[2], ttl);
@@ -75,7 +89,9 @@ std::string CommandHandler::cmd_exists(const std::vector<std::string>& args) {
 
 std::string CommandHandler::cmd_expire(const std::vector<std::string>& args) {
     if (args.size() < 3) return RESP::error("EXPIRE requires key and seconds");
-    bool ok = store_.expire(args[1], std::stoi(args[2]));
+    auto seconds = parse_integer<int>(args[2]);
+    if (!seconds) return RESP::error("seconds is not an integer");
+    bool ok = store_.expire(args[1], *seconds);
     return RESP::integer(ok ? 1 : 0);
 }
 
@@ -102,7 +118,9 @@ std::string CommandHandler::cmd_decr(const std::vector<std::string>& args) {
 
 std::string CommandHandler::cmd_incrby(const std::vector<std::string>& args) {
     if (args.size() < 3) return RESP::error("INCRBY requires key and delta");
-    auto val = store_.incrby(args[1], std::stoll(args[2]));
+    auto delta = parse_integer<long long>(args[2]);
+    if (!delta) return RESP::error("delta is not an integer");
+    auto val = store_.incrby(args[1], *delta);
     if (!val) return RESP::error("value is not an integer");
     return RESP::integer(*val);
 }
@@ -135,7 +153,10 @@ std::string CommandHandler::cmd_rpop(const std::vector<std::string>& args) {
 
 std::string CommandHandler::cmd_lrange(const std::vector<std::string>& args) {
     if (args.size() < 4) return RESP::error("LRANGE requires key start stop");
-    auto items = store_.lrange(args[1], std::stoi(args[2]), std::stoi(args[3]));
+    auto start = parse_integer<int>(args[2]);
+    auto stop = parse_integer<int>(args[3]);
+    if (!start || !stop) return RESP::error("range bounds must be integers");
+    auto items = store_.lrange(args[1], *start, *stop);
     return RESP::array(items);
 }
 
