@@ -70,3 +70,50 @@ TEST(StoreTest, DBSize) {
     s.set("b", "2");
     EXPECT_EQ(s.dbsize(), 2u);
 }
+
+TEST(StoreTest, LRangePastEndReturnsEmpty) {
+    Store s;
+    s.rpush("list", {"a", "b"});
+    EXPECT_TRUE(s.lrange("list", 2, 10).empty());
+    EXPECT_TRUE(s.lrange("list", 100, 101).empty());
+    EXPECT_TRUE(s.lrange("list", 0, -100).empty());
+}
+
+TEST(StoreTest, UpdatingAtCapacityDoesNotEvictOtherKey) {
+    Store s(2);
+    s.set("first", "1");
+    s.set("second", "2");
+    s.set("first", "updated");
+    EXPECT_EQ(s.get("first"), "updated");
+    EXPECT_EQ(s.get("second"), "2");
+}
+
+TEST(StoreTest, RejectCounterOverflowAndTrailingJunk) {
+    Store s;
+    s.set("max", "9223372036854775807");
+    EXPECT_FALSE(s.incr("max").has_value());
+    EXPECT_EQ(s.get("max"), "9223372036854775807");
+    s.set("min", "-9223372036854775808");
+    EXPECT_FALSE(s.decr("min").has_value());
+    s.set("bad", "12oops");
+    EXPECT_FALSE(s.incr("bad").has_value());
+}
+
+TEST(StoreTest, ExpiredKeysAreNotCounted) {
+    Store s;
+    s.set("expired", "value", 0);
+    EXPECT_EQ(s.dbsize(), 0u);
+}
+
+TEST(StoreTest, KeysTreatRegexCharactersLiterally) {
+    Store s;
+    s.set("foo.bar", "1");
+    s.set("fooXbar", "2");
+    s.set("x[1]", "3");
+    auto exact = s.keys("foo.bar");
+    ASSERT_EQ(exact.size(), 1u);
+    EXPECT_EQ(exact.front(), "foo.bar");
+    auto bracket = s.keys("x[1]");
+    ASSERT_EQ(bracket.size(), 1u);
+    EXPECT_EQ(bracket.front(), "x[1]");
+}
