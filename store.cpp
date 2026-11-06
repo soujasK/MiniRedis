@@ -2,6 +2,8 @@
 #include <stdexcept>
 #include <algorithm>
 #include <regex>
+#include <limits>
+#include <charconv>
 
 using namespace std::chrono;
 
@@ -115,9 +117,14 @@ std::optional<long long> Store::incrby(const std::string& key, long long delta) 
     long long current = 0;
     auto it = string_store_.find(key);
     if (it != string_store_.end() && !is_expired(it->second)) {
-        try { current = std::stoll(it->second.value); }
-        catch (...) { return std::nullopt; } // not an integer
+        const auto& raw = it->second.value;
+        auto [end, error] = std::from_chars(raw.data(), raw.data() + raw.size(), current);
+        if (error != std::errc{} || end != raw.data() + raw.size())
+            return std::nullopt; // reject trailing junk and out-of-range values
     }
+    if ((delta > 0 && current > std::numeric_limits<long long>::max() - delta) ||
+        (delta < 0 && current < std::numeric_limits<long long>::min() - delta))
+        return std::nullopt; // signed overflow is undefined behavior
     current += delta;
     string_store_[key] = {std::to_string(current), std::nullopt};
     touch_lru(key);
