@@ -53,7 +53,8 @@ void Store::evict_expired() {
 void Store::set(const std::string& key, const std::string& value,
                 std::optional<int> ttl_seconds) {
     std::unique_lock lock(mutex_);
-    evict_lru();
+    // Updating an existing key must not evict an unrelated key at capacity.
+    if (string_store_.find(key) == string_store_.end()) evict_lru();
     std::optional<TimePoint> exp;
     if (ttl_seconds) {
         exp = steady_clock::now() + seconds(*ttl_seconds);
