@@ -168,10 +168,11 @@ std::vector<std::string> Store::lrange(const std::string& key, int start, int st
     if (it == list_store_.end()) return {};
     const auto& lst = it->second;
     int size = static_cast<int>(lst.size());
-    if (start < 0) start = std::max(0, size + start);
-    if (stop < 0) stop = size + stop;
+    if (start < 0) start = std::max(0LL, static_cast<long long>(size) + start);
+    if (start >= size) return {};
+    if (stop < 0) stop = static_cast<int>(static_cast<long long>(size) + stop);
     stop = std::min(stop, size - 1);
-    if (start > stop) return {};
+    if (start > stop || stop < 0) return {};
     std::vector<std::string> result;
     auto iter = lst.begin();
     std::advance(iter, start);
