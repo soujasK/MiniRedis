@@ -128,3 +128,23 @@ TEST(StoreTest, ExpiredGetRemovesStaleLruEntry) {
     EXPECT_EQ(s.get("live"), "value");
     EXPECT_EQ(s.get("new"), "value");
 }
+
+TEST(StoreTest, NewCounterRespectsCapacityAndLru) {
+    Store s(2);
+    s.set("oldest", "1");
+    s.set("recent", "2");
+    EXPECT_EQ(s.incr("counter"), 1);
+    EXPECT_EQ(s.dbsize(), 2u);
+    EXPECT_FALSE(s.get("oldest").has_value());
+    EXPECT_EQ(s.get("recent"), "2");
+    EXPECT_EQ(s.get("counter"), "1");
+}
+
+TEST(StoreTest, ExistingCounterDoesNotEvictAtCapacity) {
+    Store s(2);
+    s.set("counter", "5");
+    s.set("other", "7");
+    EXPECT_EQ(s.incrby("counter", 2), 7);
+    EXPECT_EQ(s.dbsize(), 2u);
+    EXPECT_EQ(s.get("other"), "7");
+}
