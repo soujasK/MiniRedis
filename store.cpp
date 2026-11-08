@@ -69,7 +69,11 @@ std::optional<std::string> Store::get(const std::string& key) {
     if (it == string_store_.end()) return std::nullopt;
     if (is_expired(it->second)) {
         string_store_.erase(it);
-        lru_map_.erase(key);
+        auto pos = lru_map_.find(key);
+        if (pos != lru_map_.end()) {
+            lru_order_.erase(pos->second);
+            lru_map_.erase(pos);
+        }
         return std::nullopt;
     }
     touch_lru(key);
