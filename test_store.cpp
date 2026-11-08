@@ -117,3 +117,14 @@ TEST(StoreTest, KeysTreatRegexCharactersLiterally) {
     ASSERT_EQ(bracket.size(), 1u);
     EXPECT_EQ(bracket.front(), "x[1]");
 }
+
+TEST(StoreTest, ExpiredGetRemovesStaleLruEntry) {
+    Store s(2);
+    s.set("expired", "old", 0);
+    s.set("live", "value");
+    EXPECT_EQ(s.get("expired"), std::nullopt);
+    s.set("new", "value");
+    EXPECT_EQ(s.dbsize(), 2u);
+    EXPECT_EQ(s.get("live"), "value");
+    EXPECT_EQ(s.get("new"), "value");
+}
