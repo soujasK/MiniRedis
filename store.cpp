@@ -142,6 +142,19 @@ std::optional<long long> Store::incrby(const std::string& key, long long delta) 
         (delta < 0 && current < std::numeric_limits<long long>::min() - delta))
         return std::nullopt; // signed overflow is undefined behavior
     current += delta;
+    // Creating a counter must respect the same capacity limit as SET.
+    // An expired entry is logically absent even before background cleanup.
+    if (it == string_store_.end() || is_expired(it->second)) {
+        if (it != string_store_.end()) {
+            auto pos = lru_map_.find(key);
+            if (pos != lru_map_.end()) {
+                lru_order_.erase(pos->second);
+                lru_map_.erase(pos);
+            }
+            string_store_.erase(it);
+        }
+        evict_lru();
+    }
     string_store_[key] = {std::to_string(current), std::nullopt};
     touch_lru(key);
     return current;
