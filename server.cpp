@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <iostream>
 #include <cstring>
+#include <cerrno>
 #include <thread>
 #include <chrono>
 
@@ -89,7 +90,17 @@ void Server::handle_client(int client_fd) {
 
             if (!args->empty()) {
                 std::string response = handler_.handle(*args);
-                send(client_fd, response.c_str(), response.size(), 0);
+                size_t sent = 0;
+                while (sent < response.size()) {
+                    ssize_t written = send(client_fd, response.data() + sent,
+                                           response.size() - sent, MSG_NOSIGNAL);
+                    if (written < 0 && errno == EINTR) continue;
+                    if (written <= 0) {
+                        close(client_fd);
+                        return;
+                    }
+                    sent += static_cast<size_t>(written);
+                }
             }
         }
     }
