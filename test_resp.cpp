@@ -108,3 +108,19 @@ TEST(CommandHandlerTest, RejectMalformedNumericArgumentsWithoutThrowing) {
     EXPECT_EQ(store.get("counter"), "3");
     EXPECT_FALSE(store.get("key").has_value());
 }
+
+TEST(CommandHandlerTest, PingRejectsExtraArguments) {
+    Store store;
+    CommandHandler handler(store);
+    EXPECT_EQ(handler.handle({"PING"}), "+PONG\r\n");
+    EXPECT_EQ(handler.handle({"PING", "hello"}), "$5\r\nhello\r\n");
+    EXPECT_EQ(handler.handle({"PING", "hello", "ignored"}), "-ERR wrong number of arguments for PING\r\n");
+}
+
+TEST(CommandHandlerTest, CommandNamesAreCaseInsensitive) {
+    Store store;
+    CommandHandler handler(store);
+    EXPECT_EQ(handler.handle({"pInG"}), "+PONG\r\n");
+    EXPECT_EQ(handler.handle({"sEt", "key", "value", "eX", "10"}), "+OK\r\n");
+    EXPECT_EQ(handler.handle({"gEt", "key"}), "$5\r\nvalue\r\n");
+}
