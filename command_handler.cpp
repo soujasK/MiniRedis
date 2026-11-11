@@ -20,7 +20,7 @@ std::string CommandHandler::handle(const std::vector<std::string>& args) {
     if (args.empty()) return RESP::error("empty command");
 
     std::string cmd = args[0];
-    std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
+    std::transform(cmd.begin(), cmd.end(), cmd.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
 
     if (cmd == "PING")    return cmd_ping(args);
     if (cmd == "SET")     return cmd_set(args);
@@ -46,7 +46,8 @@ std::string CommandHandler::handle(const std::vector<std::string>& args) {
 }
 
 std::string CommandHandler::cmd_ping(const std::vector<std::string>& args) {
-    if (args.size() > 1) return RESP::bulk_string(args[1]);
+    if (args.size() > 2) return RESP::error("wrong number of arguments for PING");
+    if (args.size() == 2) return RESP::bulk_string(args[1]);
     return RESP::simple_string("PONG");
 }
 
@@ -56,7 +57,7 @@ std::string CommandHandler::cmd_set(const std::vector<std::string>& args) {
     // Support: SET key value EX seconds
     for (size_t i = 3; i < args.size(); ++i) {
         std::string opt = args[i];
-        std::transform(opt.begin(), opt.end(), opt.begin(), ::toupper);
+        std::transform(opt.begin(), opt.end(), opt.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
         if (opt != "EX" || i + 1 >= args.size() || ttl)
             return RESP::error("invalid SET option");
         auto seconds = parse_integer<int>(args[++i]);
