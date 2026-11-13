@@ -47,10 +47,16 @@ void Server::run() {
     addr.sin_port = htons(port_);
 
     if (bind(server_fd_, (sockaddr*)&addr, sizeof(addr)) < 0) {
-        perror("bind"); return;
+        perror("bind");
+        close(server_fd_);
+        server_fd_ = -1;
+        return;
     }
     if (listen(server_fd_, 128) < 0) {
-        perror("listen"); return;
+        perror("listen");
+        close(server_fd_);
+        server_fd_ = -1;
+        return;
     }
 
     running_ = true;
