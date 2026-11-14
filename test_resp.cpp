@@ -124,3 +124,39 @@ TEST(CommandHandlerTest, CommandNamesAreCaseInsensitive) {
     EXPECT_EQ(handler.handle({"sEt", "key", "value", "eX", "10"}), "+OK\r\n");
     EXPECT_EQ(handler.handle({"gEt", "key"}), "$5\r\nvalue\r\n");
 }
+
+
+TEST(CommandHandlerTest, FixedArityCommandsRejectExtrasWithoutMutation) {
+    Store store;
+    CommandHandler handler(store);
+    store.set("counter", "5");
+    store.set("key", "value");
+    store.rpush("list", {"a", "b"});
+
+    const std::vector<std::vector<std::string>> invalid = {
+        {"GET", "key", "extra"},
+        {"EXPIRE", "key", "10", "extra"},
+        {"TTL", "key", "extra"},
+        {"INCR", "counter", "extra"},
+        {"DECR", "counter", "extra"},
+        {"INCRBY", "counter", "3", "extra"},
+        {"LPOP", "list", "extra"},
+        {"RPOP", "list", "extra"},
+        {"LRANGE", "list", "0", "-1", "extra"},
+        {"LLEN", "list", "extra"},
+        {"KEYS", "*", "extra"},
+        {"DBSIZE", "extra"},
+        {"FLUSHALL", "extra"}
+    };
+    for (const auto& command : invalid) {
+        SCOPED_TRACE(command[0]);
+        EXPECT_EQ(handler.handle(command).rfind("-ERR ", 0), 0u);
+    }
+
+    EXPECT_EQ(store.get("counter"), "5");
+    EXPECT_EQ(store.get("key"), "value");
+    EXPECT_EQ(store.llen("list"), 2);
+    EXPECT_EQ(store.dbsize(), 3u);
+    EXPECT_EQ(handler.handle({"INCR", "counter"}), ":6\r\n");
+    EXPECT_EQ(handler.handle({"GET", "key"}), "$5\r\nvalue\r\n");
+}
