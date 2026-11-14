@@ -85,7 +85,11 @@ std::string CommandHandler::cmd_del(const std::vector<std::string>& args) {
 
 std::string CommandHandler::cmd_exists(const std::vector<std::string>& args) {
     if (args.size() < 2) return RESP::error("EXISTS requires key");
-    return RESP::integer(store_.exists(args[1]) ? 1 : 0);
+    long long count = 0;
+    for (size_t i = 1; i < args.size(); ++i) {
+        if (store_.exists(args[i])) ++count;
+    }
+    return RESP::integer(count);
 }
 
 std::string CommandHandler::cmd_expire(const std::vector<std::string>& args) {
