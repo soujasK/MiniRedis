@@ -69,7 +69,7 @@ std::string CommandHandler::cmd_set(const std::vector<std::string>& args) {
 }
 
 std::string CommandHandler::cmd_get(const std::vector<std::string>& args) {
-    if (args.size() < 2) return RESP::error("GET requires key");
+    if (args.size() != 2) return RESP::error("GET requires exactly one key");
     auto val = store_.get(args[1]);
     if (!val) return RESP::null_bulk_string();
     return RESP::bulk_string(*val);
@@ -89,7 +89,7 @@ std::string CommandHandler::cmd_exists(const std::vector<std::string>& args) {
 }
 
 std::string CommandHandler::cmd_expire(const std::vector<std::string>& args) {
-    if (args.size() < 3) return RESP::error("EXPIRE requires key and seconds");
+    if (args.size() != 3) return RESP::error("EXPIRE requires key and seconds");
     auto seconds = parse_integer<int>(args[2]);
     if (!seconds) return RESP::error("seconds is not an integer");
     bool ok = store_.expire(args[1], *seconds);
@@ -97,28 +97,28 @@ std::string CommandHandler::cmd_expire(const std::vector<std::string>& args) {
 }
 
 std::string CommandHandler::cmd_ttl(const std::vector<std::string>& args) {
-    if (args.size() < 2) return RESP::error("TTL requires key");
+    if (args.size() != 2) return RESP::error("TTL requires exactly one key");
     auto t = store_.ttl(args[1]);
     if (!t) return RESP::integer(-2); // key doesn't exist
     return RESP::integer(*t);
 }
 
 std::string CommandHandler::cmd_incr(const std::vector<std::string>& args) {
-    if (args.size() < 2) return RESP::error("INCR requires key");
+    if (args.size() != 2) return RESP::error("INCR requires exactly one key");
     auto val = store_.incr(args[1]);
     if (!val) return RESP::error("value is not an integer");
     return RESP::integer(*val);
 }
 
 std::string CommandHandler::cmd_decr(const std::vector<std::string>& args) {
-    if (args.size() < 2) return RESP::error("DECR requires key");
+    if (args.size() != 2) return RESP::error("DECR requires exactly one key");
     auto val = store_.decr(args[1]);
     if (!val) return RESP::error("value is not an integer");
     return RESP::integer(*val);
 }
 
 std::string CommandHandler::cmd_incrby(const std::vector<std::string>& args) {
-    if (args.size() < 3) return RESP::error("INCRBY requires key and delta");
+    if (args.size() != 3) return RESP::error("INCRBY requires key and delta");
     auto delta = parse_integer<long long>(args[2]);
     if (!delta) return RESP::error("delta is not an integer");
     auto val = store_.incrby(args[1], *delta);
@@ -139,21 +139,21 @@ std::string CommandHandler::cmd_rpush(const std::vector<std::string>& args) {
 }
 
 std::string CommandHandler::cmd_lpop(const std::vector<std::string>& args) {
-    if (args.size() < 2) return RESP::error("LPOP requires key");
+    if (args.size() != 2) return RESP::error("LPOP requires exactly one key");
     auto val = store_.lpop(args[1]);
     if (!val) return RESP::null_bulk_string();
     return RESP::bulk_string(*val);
 }
 
 std::string CommandHandler::cmd_rpop(const std::vector<std::string>& args) {
-    if (args.size() < 2) return RESP::error("RPOP requires key");
+    if (args.size() != 2) return RESP::error("RPOP requires exactly one key");
     auto val = store_.rpop(args[1]);
     if (!val) return RESP::null_bulk_string();
     return RESP::bulk_string(*val);
 }
 
 std::string CommandHandler::cmd_lrange(const std::vector<std::string>& args) {
-    if (args.size() < 4) return RESP::error("LRANGE requires key start stop");
+    if (args.size() != 4) return RESP::error("LRANGE requires key start stop");
     auto start = parse_integer<int>(args[2]);
     auto stop = parse_integer<int>(args[3]);
     if (!start || !stop) return RESP::error("range bounds must be integers");
@@ -162,21 +162,24 @@ std::string CommandHandler::cmd_lrange(const std::vector<std::string>& args) {
 }
 
 std::string CommandHandler::cmd_llen(const std::vector<std::string>& args) {
-    if (args.size() < 2) return RESP::error("LLEN requires key");
+    if (args.size() != 2) return RESP::error("LLEN requires exactly one key");
     return RESP::integer(store_.llen(args[1]));
 }
 
 std::string CommandHandler::cmd_keys(const std::vector<std::string>& args) {
+    if (args.size() > 2) return RESP::error("KEYS accepts at most one pattern");
     std::string pattern = args.size() > 1 ? args[1] : "*";
     auto ks = store_.keys(pattern);
     return RESP::array(ks);
 }
 
-std::string CommandHandler::cmd_flushall(const std::vector<std::string>&) {
+std::string CommandHandler::cmd_flushall(const std::vector<std::string>& args) {
+    if (args.size() != 1) return RESP::error("FLUSHALL accepts no arguments");
     store_.flushall();
     return RESP::simple_string("OK");
 }
 
-std::string CommandHandler::cmd_dbsize(const std::vector<std::string>&) {
+std::string CommandHandler::cmd_dbsize(const std::vector<std::string>& args) {
+    if (args.size() != 1) return RESP::error("DBSIZE accepts no arguments");
     return RESP::integer(static_cast<long long>(store_.dbsize()));
 }
