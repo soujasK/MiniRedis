@@ -160,3 +160,30 @@ TEST(CommandHandlerTest, FixedArityCommandsRejectExtrasWithoutMutation) {
     EXPECT_EQ(handler.handle({"INCR", "counter"}), ":6\r\n");
     EXPECT_EQ(handler.handle({"GET", "key"}), "$5\r\nvalue\r\n");
 }
+
+
+TEST(CommandHandlerTest, ExistsCountsAllKeysIncludingListsAndDuplicates) {
+    Store store;
+    CommandHandler handler(store);
+    store.set("string", "value");
+    store.rpush("list", {"first", "second"});
+
+    EXPECT_EQ(handler.handle({"EXISTS"}), "-ERR EXISTS requires key\r\n");
+    EXPECT_EQ(handler.handle({"EXISTS", "missing"}), ":0\r\n");
+    EXPECT_EQ(handler.handle({"EXISTS", "string"}), ":1\r\n");
+    EXPECT_EQ(handler.handle({"EXISTS", "list"}), ":1\r\n");
+    EXPECT_EQ(handler.handle({"EXISTS", "string", "missing", "list"}), ":2\r\n");
+    EXPECT_EQ(handler.handle({"EXISTS", "string", "string", "list"}), ":3\r\n");
+    EXPECT_EQ(store.get("string"), "value");
+    EXPECT_EQ(store.llen("list"), 2);
+}
+
+TEST(CommandHandlerTest, ExistsDoesNotCountExpiredStrings) {
+    Store store;
+    CommandHandler handler(store);
+    store.set("expired", "value", 0);
+    store.rpush("list", {"value"});
+
+    EXPECT_EQ(handler.handle({"EXISTS", "expired", "list"}), ":1\r\n");
+    EXPECT_EQ(handler.handle({"EXISTS", "expired"}), ":0\r\n");
+}
