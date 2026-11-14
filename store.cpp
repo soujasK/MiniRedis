@@ -96,7 +96,10 @@ bool Store::del(const std::string& key) {
 }
 
 bool Store::exists(const std::string& key) {
-    return get(key).has_value();
+    std::shared_lock lock(mutex_);
+    auto str = string_store_.find(key);
+    if (str != string_store_.end() && !is_expired(str->second)) return true;
+    return list_store_.find(key) != list_store_.end();
 }
 
 bool Store::expire(const std::string& key, int seconds_val) {
