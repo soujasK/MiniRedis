@@ -187,7 +187,18 @@ std::optional<std::string> Store::lpop(const std::string& key) {
     if (it == list_store_.end() || it->second.empty()) return std::nullopt;
     auto val = it->second.front();
     it->second.pop_front();
-    if (it->second.empty()) list_store_.erase(it);
+    if (it->second.empty()) {
+        list_store_.erase(it);
+        // Remove stale LRU tracking when the last list item is popped.
+        // Keep tracking if a string also exists under this key.
+        if (string_store_.find(key) == string_store_.end()) {
+            auto pos = lru_map_.find(key);
+            if (pos != lru_map_.end()) {
+                lru_order_.erase(pos->second);
+                lru_map_.erase(pos);
+            }
+        }
+    }
     return val;
 }
 
@@ -197,7 +208,18 @@ std::optional<std::string> Store::rpop(const std::string& key) {
     if (it == list_store_.end() || it->second.empty()) return std::nullopt;
     auto val = it->second.back();
     it->second.pop_back();
-    if (it->second.empty()) list_store_.erase(it);
+    if (it->second.empty()) {
+        list_store_.erase(it);
+        // Remove stale LRU tracking when the last list item is popped.
+        // Keep tracking if a string also exists under this key.
+        if (string_store_.find(key) == string_store_.end()) {
+            auto pos = lru_map_.find(key);
+            if (pos != lru_map_.end()) {
+                lru_order_.erase(pos->second);
+                lru_map_.erase(pos);
+            }
+        }
+    }
     return val;
 }
 
