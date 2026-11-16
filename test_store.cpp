@@ -148,3 +148,21 @@ TEST(StoreTest, ExistingCounterDoesNotEvictAtCapacity) {
     EXPECT_EQ(s.dbsize(), 2u);
     EXPECT_EQ(s.get("other"), "7");
 }
+
+TEST(StoreTest, ExhaustedListsCanBeReusedWithoutStaleKeys) {
+    Store s(2);
+    s.rpush("left", {"one"});
+    s.lpush("right", {"two"});
+    EXPECT_EQ(s.lpop("left"), "one");
+    EXPECT_EQ(s.rpop("right"), "two");
+    EXPECT_FALSE(s.exists("left"));
+    EXPECT_FALSE(s.exists("right"));
+    EXPECT_EQ(s.dbsize(), 0u);
+
+    s.set("left", "string");
+    s.set("other", "value");
+    s.set("new", "value");
+    EXPECT_EQ(s.dbsize(), 2u);
+    EXPECT_EQ(s.get("other"), "value");
+    EXPECT_EQ(s.get("new"), "value");
+}
