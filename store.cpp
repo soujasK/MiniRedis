@@ -274,6 +274,9 @@ std::vector<std::string> Store::keys(const std::string& pattern) {
             result.push_back(k);
     }
     for (const auto& [k, _] : list_store_) {
+        // A key shared by the string and list stores is still one Redis key.
+        auto str = string_store_.find(k);
+        if (str != string_store_.end() && !is_expired(str->second)) continue;
         if (pattern_match(pattern, k)) result.push_back(k);
     }
     return result;
