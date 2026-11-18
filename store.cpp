@@ -296,5 +296,10 @@ size_t Store::dbsize() {
     for (const auto& [key, entry] : string_store_) {
         if (!is_expired(entry)) ++live_strings;
     }
-    return live_strings + list_store_.size();
+    size_t list_only = 0;
+    for (const auto& [key, _] : list_store_) {
+        auto str = string_store_.find(key);
+        if (str == string_store_.end() || is_expired(str->second)) ++list_only;
+    }
+    return live_strings + list_only;
 }
