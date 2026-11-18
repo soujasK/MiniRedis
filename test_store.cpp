@@ -2,6 +2,7 @@
 #include "store.h"
 #include <thread>
 #include <chrono>
+#include <algorithm>
 
 TEST(StoreTest, SetAndGet) {
     Store s;
@@ -165,4 +166,24 @@ TEST(StoreTest, ExhaustedListsCanBeReusedWithoutStaleKeys) {
     EXPECT_EQ(s.dbsize(), 2u);
     EXPECT_EQ(s.get("other"), "value");
     EXPECT_EQ(s.get("new"), "value");
+}
+
+TEST(StoreTest, SharedStringAndListKeyIsCountedOnlyOnce) {
+    Store s;
+    s.set("shared", "string");
+    s.rpush("shared", {"list-item"});
+    s.set("string-only", "value");
+    s.lpush("list-only", {"value"});
+
+    EXPECT_EQ(s.dbsize(), 3u);
+    auto all = s.keys("*");
+    EXPECT_EQ(std::count(all.begin(), all.end(), "shared"), 1);
+    EXPECT_EQ(all.size(), 3u);
+
+    // An expired string should not hide a live list of the same name.
+    s.set("shared", "expired", 0);
+    EXPECT_EQ(s.dbsize(), 3u);
+    all = s.keys("*");
+    EXPECT_EQ(std::count(all.begin(), all.end(), "shared"), 1);
+    EXPECT_TRUE(s.exists("shared"));
 }
